@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>48Hgames — HTML5 Game Showcase</title>
+  <meta name="description" content="48時間ゲームジャムから生まれた、自作HTML5ゲームのショーケース。ブラウザですぐに遊べます。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap nav">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">48<span>H</span></span>
+        <span class="brand-name"><b>48H</b>games</span>
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="#all" data-i18n="nav_new">新着</a>
+        <a href="#popular" data-i18n="nav_popular">人気</a>
+        <a href="#all" data-i18n="nav_genre">ジャンル</a>
+      </nav>
+      <div class="nav-right">
+        <div class="lang-switch" role="group" aria-label="言語設定 / Language">
+          <button data-lang-btn="ja">JA</button>
+          <button data-lang-btn="en">EN</button>
+        </div>
+        <button class="nav-toggle" aria-label="Menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="mobile-menu">
+      <a href="#all" data-i18n="nav_new">新着</a>
+      <a href="#popular" data-i18n="nav_popular">人気</a>
+      <a href="#all" data-i18n="nav_genre">ジャンル</a>
+      <a href="company.html" data-i18n="nav_company">運営会社</a>
+      <a href="privacy.html" data-i18n="nav_privacy">プライバシーポリシー</a>
+      <a href="terms.html" data-i18n="nav_terms">利用規約</a>
+      <div class="lang-switch" role="group" aria-label="言語設定 / Language">
+        <button data-lang-btn="ja">JA</button>
+        <button data-lang-btn="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO (latest release) -->
+    <section class="hero" id="hero"></section>
+
+    <!-- POPULAR -->
+    <section class="section" id="popular">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2><span class="idx">★</span><span data-i18n="sec_popular">人気のタイトル</span></h2>
+            <p class="section-sub" data-i18n="sec_popular_sub">いま遊ばれているゲーム</p>
+          </div>
+        </div>
+        <div class="rail" id="popular-rail"></div>
+      </div>
+    </section>
+
+    <!-- ALL TITLES + GENRE FILTER -->
+    <section class="section" id="all">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2><span class="idx">∞</span><span data-i18n="sec_all">すべてのタイトル</span></h2>
+            <p class="section-sub" data-i18n="sec_all_sub">コレクションをまるごと探す</p>
+          </div>
+        </div>
+        <div class="filters" id="filters" role="group" aria-label="Genre filter"></div>
+        <div class="card-grid" id="all-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html">
+            <span class="brand-mark">48<span>H</span></span>
+            <span class="brand-name"><b>48H</b>games</span>
+          </a>
+          <p data-i18n="footer_about">48時間ゲームジャムから生まれた、自作HTML5ゲームのショーケース。</p>
+        </div>
+        <div class="footer-col">
+          <h3 data-i18n="foot_explore">さがす</h3>
+          <a href="#popular" data-i18n="nav_popular">人気</a>
+          <a href="#all" data-i18n="nav_genre">ジャンル</a>
+        </div>
+        <div class="footer-col">
+          <h3 data-i18n="foot_about">サイト情報</h3>
+          <a href="company.html" data-i18n="nav_company">運営会社</a>
+          <a href="privacy.html" data-i18n="nav_privacy">プライバシーポリシー</a>
+          <a href="terms.html" data-i18n="nav_terms">利用規約</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span data-i18n="rights">© 2026 48Hgames — Operated by Okakichi</span>
+        <span aria-hidden="true">48:00:00</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/games.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
