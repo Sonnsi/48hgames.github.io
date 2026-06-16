@@ -78,6 +78,25 @@ for(const n of ["missile","torpedo","drone","rock"]){
 }
 const HZ_H = { missile:30, torpedo:30, drone:23, rock:20 }; // draw heights
 
+/* item artwork (uploaded): gold=黄金の像(+50), speed=加速, sludge=減速 */
+const IT_IMG = {}; const IT_READY = {};
+for(const n of ["gold","speed","sludge","decoy"]){
+  const im=new Image(); IT_READY[n]=false;
+  im.onload=(k=>()=>{ IT_READY[k]=true; })(n);
+  im.src=n+".png"; IT_IMG[n]=im;
+}
+const IT_H = { gold:24, speed:19, sludge:19, decoy:26 };
+
+/* title screen artwork (uploaded) */
+const titleImg = new Image(); let titleReady=false;
+titleImg.onload=()=>{ titleReady=true; };
+titleImg.src="title.png";
+function drawCover(img){
+  const s=Math.max(VW/img.width, VH/img.height);
+  const w=img.width*s, h=img.height*s;
+  ctx.drawImage(img, Math.round((VW-w)/2), Math.round((VH-h)/2), Math.round(w), Math.round(h));
+}
+
 /* ---------- palette helpers ---------- */
 function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
 function txt(s,x,y,c,size,align){ ctx.fillStyle=c; ctx.font="bold "+(size||9)+"px 'M PLUS Rounded 1c', monospace";
@@ -420,7 +439,10 @@ function drawPlayer(){
   }
 }
 function drawEntities(){
-  for(const it of items) drawSprite(it.type, it.x, it.y);
+  for(const it of items){
+    if(IT_READY[it.type]) drawImg(IT_IMG[it.type], it.x, it.y, IT_H[it.type]);
+    else drawSprite(it.type, it.x, it.y);
+  }
   for(const h of hazards){
     if(h.type==="rock"){
       if(HZ_READY.rock) drawImg(HZ_IMG.rock, h.x, h.y, HZ_H.rock); else drawSprite("rock", h.x, h.y);
@@ -439,23 +461,20 @@ function panel(x,y,w,h){ R(x-2,y-2,w+4,h+4,"#000"); R(x,y,w,h,"rgba(10,16,28,.92
   ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+.5,w-1,h-1); }
 
 function drawTitle(){
-  drawBackgroundStatic();
-  if(tankerReady) drawImg(tankerImg, VW/2, VH*0.44, 130); else drawSprite("tanker", VW/2, VH*0.46);
-  // title
-  panel(20,70,VW-40,70);
-  txt("ホルムズ海峡", VW/2, 98, "#ffd23a", 20, "center");
-  txt("突 破", VW/2, 124, "#fff", 18, "center");
-  // start prompt
+  if(titleReady){ drawCover(titleImg); }
+  else {
+    drawBackgroundStatic();
+    if(tankerReady) drawImg(tankerImg, VW/2, VH*0.44, 130); else drawSprite("tanker", VW/2, VH*0.46);
+    panel(20,70,VW-40,70);
+    txt("ホルムズ海峡", VW/2, 98, "#ffd23a", 20, "center");
+    txt("突 破", VW/2, 124, "#fff", 18, "center");
+  }
+  // start prompt + best (overlaid on the title art, in an open area)
   const a=0.5+0.5*Math.sin(performance.now()/300);
-  ctx.globalAlpha=a;
-  txt("▶ タップで はじめる", VW/2, VH*0.66, "#fff", 12, "center"); ctx.globalAlpha=1;
-  txt("90秒 生きのびろ。お宝は拾え。", VW/2, VH*0.70, "rgba(255,255,255,.85)", 9, "center");
-  // mini legend
-  drawSprite("oil", VW/2-58, VH*0.80); txt("+10", VW/2-58, VH*0.80+18,"#caa24a",8,"center");
-  drawSprite("lng", VW/2-20, VH*0.80); txt("+20", VW/2-20, VH*0.80+18,"#e8eef2",8,"center");
-  drawSprite("gold", VW/2+18, VH*0.80); txt("+50", VW/2+18, VH*0.80+18,"#ffd23a",8,"center");
-  drawSprite("speed", VW/2+56, VH*0.80); txt("加速", VW/2+56, VH*0.80+18,"#3aa0ff",8,"center");
-  txt("BEST  "+best, VW/2, VH-26, "rgba(255,255,255,.8)", 10, "center");
+  R(VW/2-95, VH*0.31-13, 190, 26, "rgba(10,16,28,.6)");
+  ctx.globalAlpha=a; txt("▶ タップで はじめる", VW/2, VH*0.31+4, "#fff", 13, "center"); ctx.globalAlpha=1;
+  R(VW/2-62, VH*0.37-11, 124, 22, "rgba(10,16,28,.6)");
+  txt("BEST  "+best, VW/2, VH*0.37+4, "#ffe79a", 11, "center");
 }
 function drawBackgroundStatic(){
   R(0,0,VW,VH,"#246b95");
