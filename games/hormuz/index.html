@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ホルムズ海峡突破 — 48Hgames</title>
+<style>
+  :root { --ink:#10131c; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#0a0d16; overflow:hidden; }
+  body {
+    display:grid; place-items:center;
+    font-family:"M PLUS Rounded 1c", system-ui, sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    background:
+      radial-gradient(120% 80% at 50% 0%, #1b2740, #0a0d16 70%);
+  }
+  #stage {
+    position:relative;
+    aspect-ratio:9 / 19.5;
+    height:100dvh; max-height:100dvh;
+    width:auto; max-width:100vw;
+    box-shadow:0 0 0 3px #000, 0 18px 60px -10px rgba(0,0,0,.8);
+  }
+  canvas {
+    display:block; width:100%; height:100%;
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    touch-action:none;
+  }
+  /* back-to-site button */
+  #back {
+    position:absolute; left:8px; top:8px; z-index:5;
+    width:34px; height:34px; border-radius:9px;
+    background:rgba(8,11,18,.6); border:2px solid rgba(255,255,255,.35);
+    color:#fff; font-size:18px; line-height:30px; text-align:center;
+    text-decoration:none; backdrop-filter:blur(3px);
+  }
+  #back:active { transform:scale(.94); }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <a id="back" href="../../index.html" aria-label="サイトに戻る">←</a>
+    <canvas id="c"></canvas>
+  </div>
+<script>
+(() => {
+"use strict";
+const VW = 240, VH = 520;          // logical resolution (≈ 9:19.5)
+const LAND = 18;                    // land strip width each side
+const SEA_L = LAND, SEA_R = VW - LAND;
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+cv.width = VW; cv.height = VH;
+ctx.imageSmoothingEnabled = true;
+
+/* player tanker artwork (uploaded) */
+const tankerImg = new Image();
+let tankerReady = false;
+tankerImg.onload = () => { tankerReady = true; };
+tankerImg.src = "tanker.png";
+function drawImg(img,cx,cy,h){
+  const w = h*img.width/img.height;
+  ctx.drawImage(img, Math.round(cx-w/2), Math.round(cy-h/2), Math.max(1,Math.round(w)), Math.max(1,Math.round(h)));
+}
+function drawImgRot(img,cx,cy,h,ang){
+  const w = h*img.width/img.height;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang);
+  ctx.drawImage(img, Math.round(-w/2), Math.round(-h/2), Math.max(1,Math.round(w)), Math.max(1,Math.round(h)));
+  ctx.restore();
+}
+/* hazard artwork (uploaded). source sprites point UP = forward. */
+const HZ_IMG = {}; const HZ_READY = {};
+for(const n of ["missile","torpedo","drone","rock"]){
+  const im=new Image(); HZ_READY[n]=false;
+  im.onload=(k=>()=>{ HZ_READY[k]=true; })(n);
+  im.src=n+".png"; HZ_IMG[n]=im;
+}
+const HZ_H = { missile:30, torpedo:30, drone:23, rock:20 }; // draw heights
+
+/* ---------- palette helpers ---------- */
+function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+function txt(s,x,y,c,size,align){ ctx.fillStyle=c; ctx.font="bold "+(size||9)+"px 'M PLUS Rounded 1c', monospace";
+  ctx.textAlign=align||"left"; ctx.textBaseline="alphabetic"; ctx.fillText(s,x,y); }
+
+/* ---------- sprites (drawn from rect lists, origin = center) ---------- */
+// each sprite: {w,h, parts:[[x,y,w,h,color]...]} in local coords with (0,0)=top-left of bbox
+const SP = {
+  tanker: { w:18, h:30, parts:[
+    // wake
+    [4,28,3,3,"#bcd8e6"],[11,28,3,3,"#bcd8e6"],[7,29,4,2,"#e8f6ff"],
+    // hull outline (red)
+    [5,2,8,3,"#7a1f12"],
+    [4,4,10,22,"#9c2a16"],[3,8,12,14,"#9c2a16"],
+    [4,4,10,22,"#9c2a16"],
+    // deck (green)
+    [5,5,8,20,"#3f7d3a"],[6,5,6,20,"#4f9b46"],
+    // deck center line + pipes
+    [8,6,2,18,"#356b30"],
+    [6,9,6,1,"#356b30"],[6,14,6,1,"#356b30"],[6,19,6,1,"#356b30"],
+    // bow tip
+    [8,1,2,4,"#caa24a"],
+    // bridge (white) near stern
+    [5,24,8,4,"#e9eef2"],[6,25,6,2,"#b9c4cc"],
+    [7,22,4,2,"#cfd8de"],
+  ]},
+  life: { w:9, h:13, parts:[
+    [3,12,3,1,"#e8f6ff"],
+    [2,1,5,11,"#9c2a16"],[3,2,3,9,"#4f9b46"],[4,2,1,9,"#356b30"],
+    [2,9,5,3,"#e9eef2"],
+  ]},
+  missile: { w:8, h:14, parts:[
+    [3,0,2,4,"#ffce3a"],          // tip
+    [2,3,4,9,"#c9ced6"],[3,3,2,9,"#eef2f6"],
+    [1,9,2,4,"#8a9099"],[5,9,2,4,"#8a9099"], // fins
+    [2,12,4,3,"#ff7a3a"],[3,13,2,3,"#ffd23a"], // flame
+  ]},
+  drone: { w:16, h:12, parts:[
+    [0,1,4,2,"#5a6270"],[12,1,4,2,"#5a6270"],     // arms
+    [1,0,3,3,"#39414f"],[12,0,3,3,"#39414f"],     // rotors
+    [5,3,6,6,"#2b3340"],[6,4,4,4,"#3c4757"],      // body
+    [7,5,2,2,"#ff4d4d"],                           // red light
+    [6,9,4,2,"#1e2530"],
+  ]},
+  torpedo: { w:8, h:16, parts:[
+    [2,0,4,3,"#39414f"],[3,0,2,3,"#5a6270"],       // nose
+    [2,2,4,11,"#4a5360"],[3,2,2,11,"#5f6a78"],     // body
+    [3,5,2,1,"#2b3340"],[3,8,2,1,"#2b3340"],
+    [1,12,2,3,"#39414f"],[5,12,2,3,"#39414f"],     // fins
+    [3,14,2,3,"#9fd6e6"],                           // bubbles
+  ]},
+  rock: { w:16, h:13, parts:[
+    [3,2,10,9,"#6b5a44"],[2,4,12,6,"#6b5a44"],
+    [4,1,8,3,"#8a755a"],[5,2,6,4,"#9c8868"],
+    [3,9,10,3,"#574631"],
+    [6,4,3,2,"#b6a585"],
+  ]},
+  oil: { w:12, h:14, parts:[                        // oil drum (石油)
+    [2,1,8,12,"#2b2b2b"],[3,1,6,12,"#3a3a3a"],
+    [2,3,8,1,"#d8a33a"],[2,9,8,1,"#d8a33a"],        // bands
+    [2,5,8,3,"#caa24a"],[4,6,4,1,"#1d1d1d"],        // label
+    [2,0,8,2,"#444"],[2,12,8,2,"#444"],
+  ]},
+  lng: { w:14, h:14, parts:[                         // spherical LNG tank
+    [3,1,8,8,"#e8eef2"],[2,2,10,6,"#e8eef2"],[4,0,6,10,"#e8eef2"],
+    [4,2,4,3,"#ffffff"],                             // highlight
+    [3,7,8,3,"#cdd6dc"],
+    [3,9,2,4,"#9aa4ad"],[9,9,2,4,"#9aa4ad"],         // legs
+    [4,4,2,1,"#b7c0c7"],
+  ]},
+  gold: { w:12, h:16, parts:[                         // golden statue (rare)
+    [4,12,4,4,"#a9791f"],[3,15,6,1,"#caa24a"],        // pedestal
+    [5,2,2,2,"#ffe79a"],                              // head
+    [4,4,4,6,"#ffd23a"],[5,4,2,6,"#fff0b0"],          // body
+    [3,5,1,4,"#e0a92a"],[8,5,1,4,"#e0a92a"],          // arms
+    [4,10,4,2,"#e0a92a"],
+  ]},
+  speed: { w:14, h:15, parts:[                         // checkered flag (turbo)
+    [2,0,2,15,"#c9ced6"],                             // pole
+    [4,1,3,3,"#111"],[10,1,3,3,"#111"],[7,1,3,3,"#fff"],[4,4,3,3,"#fff"],
+    [7,4,3,3,"#111"],[10,4,3,3,"#fff"],[4,7,3,3,"#111"],[7,7,3,3,"#fff"],[10,7,3,3,"#111"],
+    [4,1,9,9,"#000"], // (covered by checks above where set)
+  ]},
+  decoy: { w:12, h:16, parts:[                          // fake/decoy statue (penalty)
+    [4,12,4,4,"#3f4a3a"],[3,15,6,1,"#5b6b52"],
+    [5,2,2,2,"#8f9a86"],
+    [4,4,4,6,"#6f7d66"],[5,4,2,6,"#88977c"],
+    [3,5,1,4,"#5b6b52"],[8,5,1,4,"#5b6b52"],
+    [4,10,4,2,"#566450"],
+    [5,6,1,1,"#caa24a"],[7,8,1,1,"#caa24a"],            // hint of fake gold
+  ]},
+  sludge: { w:16, h:11, parts:[                          // oil slick / sludge (penalty)
+    [3,3,10,6,"#241f12"],[2,5,12,4,"#2e2716"],
+    [4,2,8,3,"#3a3220"],
+    [5,4,3,2,"#5a4d2a"],[9,5,2,2,"#5a4d2a"],
+    [2,8,12,2,"#1a160c"],
+  ]},
+};
+function drawSprite(name,cx,cy,flash){
+  const s=SP[name]; if(!s) return;
+  const ox = (cx - s.w/2)|0, oy = (cy - s.h/2)|0;
+  for(const p of s.parts){ R(ox+p[0], oy+p[1], p[2], p[3], flash?"#ffffff":p[4]); }
+  return s;
+}
+
+/* ---------- world / water background ---------- */
+let scroll = 0;
+function drawBackground(dt){
+  scroll = (scroll + 42*dt) % 16;
+  // sea
+  R(0,0,VW,VH,"#1f5e86");
+  R(0,0,VW,VH,"#246b95");
+  // moving water dashes
+  ctx.globalAlpha=.5;
+  for(let y=-16+scroll; y<VH; y+=16){
+    for(let x=SEA_L+6; x<SEA_R-4; x+=22){
+      const xx = x + ((Math.floor((y)/16))%2)*11;
+      R(xx, y+5, 5, 2, "#3a85ad");
+    }
+  }
+  ctx.globalAlpha=1;
+  // land strips (sandy cliffs) left & right
+  drawLand(0, LAND);
+  drawLand(SEA_R, LAND);
+}
+function drawLand(x0,w){
+  R(x0,0,w,VH,"#b59b6a");
+  R(x0,0,w,VH,"#c2a875");
+  // jagged inner edge + rocks (scrolling)
+  for(let y=-16+scroll; y<VH; y+=16){
+    const edge = (x0===0) ? x0+w : x0;
+    const dir = (x0===0)? -1 : 1;
+    R(edge-(dir>0?0:3), y, 3, 8, "#9c855a");
+    R(x0+ (x0===0?2:2), y+4, w-4, 3, "#a89162");
+    R(x0+(x0===0? w-4:2), y+9, 2, 4, "#8a744d");
+  }
+}
+
+/* ---------- input ---------- */
+const keys={};
+addEventListener("keydown",e=>{ keys[e.key.toLowerCase()]=true;
+  if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase())) e.preventDefault();
+  if(state!=="play") tryStartFromInput();
+});
+addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
+
+let touchActive=false, tOrigin={x:0,y:0}, tDir={x:0,y:0};
+function canvasPoint(ev){
+  const r=cv.getBoundingClientRect(); const t=ev.touches?ev.touches[0]:ev;
+  return { x:(t.clientX-r.left)/r.width*VW, y:(t.clientY-r.top)/r.height*VH };
+}
+cv.addEventListener("touchstart",e=>{ e.preventDefault();
+  if(state!=="play"){ tryStartFromInput(); return; }
+  touchActive=true; tOrigin=canvasPoint(e); tDir={x:0,y:0};
+},{passive:false});
+cv.addEventListener("touchmove",e=>{ e.preventDefault(); if(!touchActive) return;
+  const p=canvasPoint(e); const dx=p.x-tOrigin.x, dy=p.y-tOrigin.y;
+  const m=Math.hypot(dx,dy); const dead=4;
+  if(m>dead){ tDir={x:dx/m, y:dy/m}; } else { tDir={x:0,y:0}; }
+},{passive:false});
+function endTouch(e){ if(e) e.preventDefault(); touchActive=false; tDir={x:0,y:0}; }
+cv.addEventListener("touchend",endTouch,{passive:false});
+cv.addEventListener("touchcancel",endTouch,{passive:false});
+// mouse fallback (desktop)
+let mouseDown=false;
+cv.addEventListener("mousedown",e=>{ if(state!=="play"){ tryStartFromInput(); return;} mouseDown=true; tOrigin=canvasPoint(e); tDir={x:0,y:0}; });
+cv.addEventListener("mousemove",e=>{ if(!mouseDown) return; const p=canvasPoint(e); const dx=p.x-tOrigin.x,dy=p.y-tOrigin.y; const m=Math.hypot(dx,dy); tDir = m>4?{x:dx/m,y:dy/m}:{x:0,y:0}; });
+addEventListener("mouseup",()=>{ mouseDown=false; tDir={x:0,y:0}; });
+
+function inputVector(){
+  let x=0,y=0;
+  if(keys["arrowleft"]||keys["a"]) x-=1;
+  if(keys["arrowright"]||keys["d"]) x+=1;
+  if(keys["arrowup"]||keys["w"]) y-=1;
+  if(keys["arrowdown"]||keys["s"]) y+=1;
+  if(x||y){ const m=Math.hypot(x,y); return {x:x/m,y:y/m}; }
+  if((touchActive||mouseDown) && (tDir.x||tDir.y)) return tDir;
+  return {x:0,y:0};
+}
+
+/* ---------- game state ---------- */
+let state="title";        // title | play | over | win
+const DURATION=90;
+let player, hazards, items, parts, elapsed, score, lives, invT, fastT, slowT, hitFlash;
+let spawn={hz:0,pt:0,pen:0};
+let best = +(localStorage.getItem("hormuz-best")||0);
+
+function reset(){
+  player={x:VW/2,y:VH-100,r:7,base:128};
+  hazards=[]; items=[]; parts=[];
+  elapsed=0; score=0; lives=3; invT=0; fastT=0; slowT=0; hitFlash=0;
+  spawn={hz:1.2,pt:2.0,pen:5};
+}
+function tryStartFromInput(){
+  if(state==="title"||state==="over"||state==="win"){ reset(); state="play"; }
+}
+
+/* ---------- phases & spawning ---------- */
+function phase(){ return elapsed<30?"early": elapsed<60?"mid":"late"; }
+function rand(a,b){ return a+Math.random()*(b-a); }
+function pick(arr){ // arr of [item,weight]
+  let t=0; for(const a of arr)t+=a[1]; let r=Math.random()*t;
+  for(const a of arr){ r-=a[1]; if(r<=0) return a[0]; } return arr[0][0];
+}
+function spawnHazard(){
+  const type=pick([["missile",35],["drone",25],["torpedo",20],["rock",20]]);
+  const x=rand(SEA_L+10,SEA_R-10);
+  const h={type,x,y:-12,vx:0,vy:0,r:7,life:1};
+  if(type==="missile"){ h.vy=190; h.r=6; }
+  else if(type==="drone"){ h.vy=108; h.r=8; }
+  else if(type==="torpedo"){ h.spd=86; h.vy=86; h.vx=0; h.r=7; h.home=6; }
+  else if(type==="rock"){ h.vy=42; h.r=8; }
+  hazards.push(h);
+}
+function spawnPoint(){
+  const p=phase();
+  let type;
+  if(p==="early") type=pick([["oil",60],["lng",40]]);
+  else if(p==="mid") type=pick([["oil",45],["lng",35],["gold",20]]);
+  else type=pick([["oil",35],["lng",30],["gold",20],["speed",15]]);
+  items.push({kind:"point",type,x:rand(SEA_L+10,SEA_R-10),y:-12,vy:42,r:8,sway:rand(0,6.28)});
+}
+function spawnPenalty(){
+  const type=pick([["decoy",50],["sludge",50]]);
+  items.push({kind:"penalty",type,x:rand(SEA_L+10,SEA_R-10),y:-12,vy:42,r:8,sway:rand(0,6.28)});
+}
+
+/* ---------- particles ---------- */
+function burst(x,y,color,n){ for(let i=0;i<(n||8);i++){ const a=Math.random()*6.28, s=rand(20,90);
+  parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.25,.5),c:color}); } }
+
+/* ---------- update ---------- */
+function update(dt){
+  elapsed+=dt;
+  if(elapsed>=DURATION){ win(); return; }
+  if(invT>0) invT-=dt;
+  if(fastT>0) fastT-=dt;
+  if(slowT>0) slowT-=dt;
+  if(hitFlash>0) hitFlash-=dt;
+
+  // player
+  const mult=(fastT>0?1.3:1)*(slowT>0?0.8:1);
+  const v=inputVector();
+  player.x+=v.x*player.base*mult*dt;
+  player.y+=v.y*player.base*mult*dt;
+  player.x=Math.max(SEA_L+player.r, Math.min(SEA_R-player.r, player.x));
+  player.y=Math.max(46+player.r, Math.min(VH-player.r-4, player.y));
+
+  // spawn timers by phase
+  const p=phase();
+  const hzEvery = p==="early"?5 : p==="mid"?3 : 2;
+  const ptEvery = p==="early"?10: p==="mid"?7 : 3;
+  spawn.hz-=dt; if(spawn.hz<=0){ spawnHazard(); spawn.hz=hzEvery*rand(.7,1.25); }
+  spawn.pt-=dt; if(spawn.pt<=0){ spawnPoint(); spawn.pt=ptEvery*rand(.75,1.25); }
+  if(p==="late"){ spawn.pen-=dt; if(spawn.pen<=0){ spawnPenalty(); spawn.pen=5*rand(.7,1.3); } }
+
+  // hazards
+  for(const h of hazards){
+    if(h.type==="drone"){ const dir=Math.sign(player.x-h.x); h.vx += dir*120*dt; h.vx=Math.max(-70,Math.min(70,h.vx)); }
+    else if(h.type==="torpedo"){
+      if(h.home>0){
+        h.home-=dt;
+        const ang=Math.atan2(player.y-h.y, player.x-h.x);
+        const cur=Math.atan2(h.vy,h.vx||0.0001);
+        let d=ang-cur; while(d>Math.PI)d-=6.283; while(d<-Math.PI)d+=6.283;
+        const turn=Math.max(-2.6*dt, Math.min(2.6*dt, d)); const na=cur+turn;
+        h.vx=Math.cos(na)*h.spd; h.vy=Math.sin(na)*h.spd;
+      }
+      // home<=0: keep current velocity (go straight)
+    }
+    h.x+=h.vx*dt; h.y+=h.vy*dt;
+    // collision
+    if(dist2(h,player) < (h.r+player.r)*(h.r+player.r)){
+      if(invT>0){ burst(h.x,h.y,"#ffe79a",10); h.life=0; }
+      else { h.life=0; hit(); burst(h.x,h.y,"#ff7a3a",12); }
+    }
+    if(h.y>VH+16 || h.x<-16 || h.x>VW+16) h.life=0;
+  }
+  hazards=hazards.filter(h=>h.life);
+
+  // items
+  for(const it of items){
+    it.sway+=dt*2; it.x+=Math.sin(it.sway)*8*dt; it.y+=it.vy*dt;
+    if(dist2(it,player) < (it.r+player.r)*(it.r+player.r)){
+      it.dead=1; collect(it);
+    }
+    if(it.y>VH+16) it.dead=1;
+  }
+  items=items.filter(it=>!it.dead);
+
+  // particles
+  for(const pa of parts){ pa.x+=pa.vx*dt; pa.y+=pa.vy*dt; pa.vy+=140*dt; pa.life-=dt; }
+  parts=parts.filter(pa=>pa.life>0);
+}
+function dist2(a,b){ const dx=a.x-b.x,dy=a.y-b.y; return dx*dx+dy*dy; }
+function hit(){
+  if(invT>0) return;
+  lives--; invT=1.2; hitFlash=.35;
+  if(lives<=0){ gameOver(); }
+}
+function collect(it){
+  if(it.kind==="point"){
+    if(it.type==="oil"){ score+=10; burst(it.x,it.y,"#caa24a",8); }
+    else if(it.type==="lng"){ score+=20; burst(it.x,it.y,"#e8eef2",8); }
+    else if(it.type==="gold"){ score+=50; invT=Math.max(invT,5); burst(it.x,it.y,"#ffd23a",16); }
+    else if(it.type==="speed"){ score+=30; fastT=10; burst(it.x,it.y,"#ffffff",12); }
+  } else {
+    if(it.type==="decoy"){ score=Math.max(0,score-30); burst(it.x,it.y,"#6f7d66",10); }
+    else if(it.type==="sludge"){ score=Math.max(0,score-10); slowT=6; burst(it.x,it.y,"#3a3220",10); }
+  }
+}
+function gameOver(){ state="over"; if(score>best){ best=score; localStorage.setItem("hormuz-best",best);} }
+function win(){ state="win"; elapsed=DURATION; if(score>best){ best=score; localStorage.setItem("hormuz-best",best);} }
+
+/* ---------- draw ---------- */
+function drawHUD(){
+  // lives (tanker icons), offset right of back button
+  for(let i=0;i<lives;i++){ if(tankerReady) drawImg(tankerImg, 46+i*12, 17, 17); else drawSprite("life", 46+i*13, 16); }
+  // score
+  txt("SCORE", VW-6, 13, "rgba(255,255,255,.8)", 8, "right");
+  txt(String(score), VW-6, 26, "#ffe79a", 13, "right");
+  // timer (remaining)
+  const rem=Math.max(0,Math.ceil(DURATION-elapsed));
+  txt("TIME", VW/2, 13, "rgba(255,255,255,.8)", 8, "center");
+  txt(rem+"s", VW/2, 26, rem<=10?"#ff6a52":"#fff", 13, "center");
+  // buff indicators
+  let bx=46;
+  if(invT>0){ R(bx,24,40,9,"#caa24a"); txt("無敵 "+invT.toFixed(0), bx+3,31,"#1d1d1d",7); bx+=44; }
+  if(fastT>0){ R(bx,24,40,9,"#3aa0ff"); txt("加速 "+fastT.toFixed(0), bx+3,31,"#fff",7); bx+=44; }
+  if(slowT>0){ R(bx,24,40,9,"#7a6a3a"); txt("減速 "+slowT.toFixed(0), bx+3,31,"#fff",7); }
+}
+function drawPlayer(){
+  const blink = invT>0 && hitFlash>0 && Math.floor(elapsed*20)%2===0;
+  if(invT>0 && hitFlash<=0 && Math.floor(elapsed*16)%2===0){
+    ctx.strokeStyle="#ffe79a"; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(player.x,player.y,11,22,0,0,6.283); ctx.stroke();
+  }
+  if(!blink){
+    if(tankerReady) drawImg(tankerImg, player.x, player.y, 42);
+    else drawSprite("tanker", player.x, player.y);
+  }
+}
+function drawEntities(){
+  for(const it of items) drawSprite(it.type, it.x, it.y);
+  for(const h of hazards){
+    if(h.type==="rock"){
+      if(HZ_READY.rock) drawImg(HZ_IMG.rock, h.x, h.y, HZ_H.rock); else drawSprite("rock", h.x, h.y);
+    } else if(HZ_READY[h.type]){
+      const ang=Math.atan2(h.vy, h.vx)+Math.PI/2;   // sprite up = forward
+      drawImgRot(HZ_IMG[h.type], h.x, h.y, HZ_H[h.type], ang);
+    } else {
+      drawSprite(h.type, h.x, h.y);
+    }
+  }
+  for(const pa of parts){ ctx.globalAlpha=Math.max(0,pa.life*2.2); R(pa.x,pa.y,2,2,pa.c); }
+  ctx.globalAlpha=1;
+}
+
+function panel(x,y,w,h){ R(x-2,y-2,w+4,h+4,"#000"); R(x,y,w,h,"rgba(10,16,28,.92)");
+  ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=1; ctx.strokeRect(x+.5,y+.5,w-1,h-1); }
+
+function drawTitle(){
+  drawBackgroundStatic();
+  if(tankerReady) drawImg(tankerImg, VW/2, VH*0.44, 130); else drawSprite("tanker", VW/2, VH*0.46);
+  // title
+  panel(20,70,VW-40,70);
+  txt("ホルムズ海峡", VW/2, 98, "#ffd23a", 20, "center");
+  txt("突 破", VW/2, 124, "#fff", 18, "center");
+  // start prompt
+  const a=0.5+0.5*Math.sin(performance.now()/300);
+  ctx.globalAlpha=a;
+  txt("▶ タップで はじめる", VW/2, VH*0.66, "#fff", 12, "center"); ctx.globalAlpha=1;
+  txt("90秒 生きのびろ。お宝は拾え。", VW/2, VH*0.70, "rgba(255,255,255,.85)", 9, "center");
+  // mini legend
+  drawSprite("oil", VW/2-58, VH*0.80); txt("+10", VW/2-58, VH*0.80+18,"#caa24a",8,"center");
+  drawSprite("lng", VW/2-20, VH*0.80); txt("+20", VW/2-20, VH*0.80+18,"#e8eef2",8,"center");
+  drawSprite("gold", VW/2+18, VH*0.80); txt("+50", VW/2+18, VH*0.80+18,"#ffd23a",8,"center");
+  drawSprite("speed", VW/2+56, VH*0.80); txt("加速", VW/2+56, VH*0.80+18,"#3aa0ff",8,"center");
+  txt("BEST  "+best, VW/2, VH-26, "rgba(255,255,255,.8)", 10, "center");
+}
+function drawBackgroundStatic(){
+  R(0,0,VW,VH,"#246b95");
+  ctx.globalAlpha=.5;
+  for(let y=0;y<VH;y+=16) for(let x=SEA_L+6;x<SEA_R-4;x+=22){ const xx=x+((y/16)%2)*11; R(xx,y+5,5,2,"#3a85ad"); }
+  ctx.globalAlpha=1; drawLand(0,LAND); drawLand(SEA_R,LAND);
+}
+function drawEnd(winFlag){
+  panel(24,150,VW-48,210);
+  txt(winFlag?"航海 成功！":"GAME OVER", VW/2, 188, winFlag?"#ffd23a":"#ff6a52", 18, "center");
+  txt(winFlag?"ホルムズ海峡を突破した！":"タンカー 沈没…", VW/2, 210, "#fff", 10, "center");
+  txt("SCORE", VW/2, 244, "rgba(255,255,255,.8)", 10, "center");
+  txt(String(score), VW/2, 270, "#ffe79a", 26, "center");
+  txt("BEST  "+best + (score>=best?"  ★NEW":""), VW/2, 292, "#fff", 10, "center");
+  const a=0.5+0.5*Math.sin(performance.now()/300); ctx.globalAlpha=a;
+  txt("▶ タップで もう一度", VW/2, 330, "#fff", 12, "center"); ctx.globalAlpha=1;
+  txt("← 左上から サイトに戻れます", VW/2, 350, "rgba(255,255,255,.7)", 8, "center");
+}
+
+/* ---------- main loop ---------- */
+let last=performance.now();
+function frame(now){
+  let dt=(now-last)/1000; last=now; if(dt>0.05) dt=0.05;
+  if(state==="play"){
+    drawBackground(dt);
+    update(dt);
+    if(state==="play"){ drawEntities(); drawPlayer(); drawHUD(); }
+  }
+  if(state==="title") drawTitle();
+  else if(state==="over"){ drawBackground(dt); drawEntities(); drawPlayer(); drawHUD(); drawEnd(false); }
+  else if(state==="win"){ drawBackground(dt); drawEntities(); drawPlayer(); drawHUD(); drawEnd(true); }
+  requestAnimationFrame(frame);
+}
+reset(); state="title";
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

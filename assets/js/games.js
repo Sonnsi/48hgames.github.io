@@ -17,25 +17,25 @@ const GENRES = {
 /* ゲームカタログ */
 const GAMES = [
   {
-    id: "neon-drift",
-    title:   { ja: "ネオンドリフト", en: "Neon Drift" },
-    tagline: { ja: "ハンドル握ったら止まれない。光の線を引きまくる48時間製レーサー。", en: "Once you grab the wheel there's no stopping. A 48-hour racer that scribbles light everywhere." },
-    genre: "racing",
+    id: "hormuz",
+    title:   { ja: "ホルムズ海峡突破", en: "Strait of Hormuz Run" },
+    tagline: { ja: "タンカーの舵をにぎって90秒。ミサイルをよけ、お宝を拾え。", en: "Take the tanker's wheel for 90 seconds. Dodge the missiles, grab the loot." },
+    genre: "action",
     langs: ["ja", "en"],
     plays: 18420,
-    releaseDate: "2026-06-12",
+    releaseDate: "2026-06-16",
     featured: true,
     popular: true,
-    cover: "assets/img/neon-drift.svg",
-    playUrl: "#",
+    cover: "assets/img/hormuz.svg",
+    playUrl: "games/hormuz/index.html",
     video: null,
     rules: {
-      ja: "左右キーでマシンを傾け、ブレーキを当ててドリフトを開始します。連続ドリフトでブーストゲージが溜まり、ゲージ満タンでスペースキーを押すと一気に加速。3周のラップタイムを競うタイムアタック制です。壁に当たると光跡が途切れ、コンボがリセットされます。",
-      en: "Steer with the arrow keys and tap brake to start a drift. Chaining drifts fills the boost gauge — slam Space at full gauge for a burst of speed. It's a three-lap time attack: hit a wall and your light trail breaks, resetting the combo."
+      ja: "あなたはタンカーの操舵手。画面をタッチした場所がバーチャルパッドになり、上下左右にドラッグした方向へタンカーが進みます（PCは矢印キー／WASD）。ミサイル・自爆ドローン・魚雷・岩をよけながら90秒間生きのびるのが目標。石油(+10)・LNG(+20)・黄金の像(+50&5秒無敵)・チェッカーフラッグ(+30&加速)を拾うと高得点。ニセ金像(-30)や重油のヘドロ(-10&減速)は拾わないように。減点要素やダメージに当たるとライフ(3つ)が1減り、0でゲームオーバーです。",
+      en: "You're the tanker's helmsman. Touch anywhere to set a virtual pad, then drag to steer (or use arrow keys / WASD on desktop). Survive 90 seconds while dodging missiles, kamikaze drones, torpedoes and rocks. Grab oil (+10), LNG (+20), the golden idol (+50 & 5s invincibility) and the checkered flag (+30 & speed boost). Avoid the decoy statue (-30) and oil sludge (-10 & slowdown). Hazards and penalties each cost one of your 3 lives — lose them all and it's game over."
     },
     screenshots: [
-      { img: "assets/img/shot-drift-1.svg", cap: { ja: "ドリフト中はブーストゲージが点灯", en: "Boost gauge lights up mid-drift" } },
-      { img: "assets/img/shot-drift-2.svg", cap: { ja: "ラップタイムは画面右上に表示", en: "Lap time shown top-right" } },
+      { img: "assets/img/shot-hormuz-1.svg", cap: { ja: "ミサイル・ドローン・魚雷・岩をよける", en: "Dodge missiles, drones, torpedoes and rocks" } },
+      { img: "assets/img/shot-hormuz-2.svg", cap: { ja: "石油・LNG・黄金の像・加速アイテムを拾う", en: "Collect oil, LNG, the golden idol and speed-ups" } },
     ],
   },
   {
