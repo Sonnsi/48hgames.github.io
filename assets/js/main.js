@@ -48,6 +48,7 @@ function renderHero(lang) {
       <div class="hero-eyebrow">${t.hero_eyebrow}</div>
       <div class="hero-grid">
         <div class="hero-copy">
+          <img class="mascot" src="assets/img/mascot.svg" alt="" aria-hidden="true">
           <h1>${game.title[lang]}</h1>
           <p class="tagline">${game.tagline[lang]}</p>
           <div class="hero-meta">
