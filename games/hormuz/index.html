@@ -71,21 +71,21 @@ function drawImgRot(img,cx,cy,h,ang){
 }
 /* hazard artwork (uploaded). source sprites point UP = forward. */
 const HZ_IMG = {}; const HZ_READY = {};
-for(const n of ["missile","torpedo","drone","rock"]){
+for(const n of ["missile","torpedo","drone","rock","nuke","warship"]){
   const im=new Image(); HZ_READY[n]=false;
   im.onload=(k=>()=>{ HZ_READY[k]=true; })(n);
   im.src=n+".png"; HZ_IMG[n]=im;
 }
-const HZ_H = { missile:30, torpedo:30, drone:23, rock:20 }; // draw heights
+const HZ_H = { missile:30, torpedo:30, drone:23, rock:20, nuke:33, warship:46 }; // draw heights
 
-/* item artwork (uploaded): gold=黄金の像(+50), speed=加速, sludge=減速 */
+/* item artwork (uploaded) */
 const IT_IMG = {}; const IT_READY = {};
-for(const n of ["gold","speed","sludge","decoy"]){
+for(const n of ["gold","speed","sludge","decoy","oil","lng"]){
   const im=new Image(); IT_READY[n]=false;
   im.onload=(k=>()=>{ IT_READY[k]=true; })(n);
   im.src=n+".png"; IT_IMG[n]=im;
 }
-const IT_H = { gold:24, speed:19, sludge:19, decoy:26 };
+const IT_H = { gold:24, speed:19, sludge:19, decoy:26, oil:19, lng:21 };
 
 /* title screen artwork (uploaded) */
 const titleImg = new Image(); let titleReady=false;
@@ -301,14 +301,20 @@ function pick(arr){ // arr of [item,weight]
   let t=0; for(const a of arr)t+=a[1]; let r=Math.random()*t;
   for(const a of arr){ r-=a[1]; if(r<=0) return a[0]; } return arr[0][0];
 }
-function spawnHazard(){
-  const type=pick([["missile",35],["drone",25],["torpedo",20],["rock",20]]);
+function spawnHazard(p){
+  let pool;
+  if(p==="early") pool=[["missile",35],["drone",25],["torpedo",20],["rock",20]];
+  else if(p==="mid") pool=[["missile",30],["drone",22],["torpedo",18],["rock",16],["warship",14]];
+  else pool=[["missile",22],["drone",17],["torpedo",16],["rock",13],["warship",16],["nuke",16]];
+  const type=pick(pool);
   const x=rand(SEA_L+10,SEA_R-10);
-  const h={type,x,y:-12,vx:0,vy:0,r:7,life:1};
+  const h={type,x,y:-12,vx:0,vy:0,r:7,life:1,dmg:1};
   if(type==="missile"){ h.vy=190; h.r=6; }
   else if(type==="drone"){ h.vy=108; h.r=8; }
   else if(type==="torpedo"){ h.spd=86; h.vy=86; h.vx=0; h.r=7; h.home=6; }
   else if(type==="rock"){ h.vy=42; h.r=8; }
+  else if(type==="nuke"){ h.vy=190; h.r=7; h.dmg=3; }       // missileと同速・追尾なし、接触ダメージ3
+  else if(type==="warship"){ h.vy=86; h.r=12; h.y=-28; }    // 速度=魚雷, 追尾=自爆ドローン
   hazards.push(h);
 }
 function spawnPoint(){
@@ -347,15 +353,20 @@ function update(dt){
 
   // spawn timers by phase
   const p=phase();
-  const hzEvery = p==="early"?5 : p==="mid"?3 : 2;
-  const ptEvery = p==="early"?10: p==="mid"?7 : 3;
-  spawn.hz-=dt; if(spawn.hz<=0){ spawnHazard(); spawn.hz=hzEvery*rand(.7,1.25); }
-  spawn.pt-=dt; if(spawn.pt<=0){ spawnPoint(); spawn.pt=ptEvery*rand(.75,1.25); }
-  if(p==="late"){ spawn.pen-=dt; if(spawn.pen<=0){ spawnPenalty(); spawn.pen=5*rand(.7,1.3); } }
+  const hzEvery = p==="early"?3 : p==="mid"?2 : 3;   // late: 3秒ごとに2個
+  const ptEvery = p==="early"?5 : p==="mid"?5 : 3;
+  spawn.hz-=dt;
+  if(spawn.hz<=0){
+    spawnHazard(p);
+    if(p==="late") spawnHazard(p);                    // 終盤は3秒に2個
+    spawn.hz=hzEvery*rand(.8,1.2);
+  }
+  spawn.pt-=dt; if(spawn.pt<=0){ spawnPoint(); spawn.pt=ptEvery*rand(.8,1.2); }
+  if(p==="late"){ spawn.pen-=dt; if(spawn.pen<=0){ spawnPenalty(); spawn.pen=5*rand(.8,1.2); } }
 
   // hazards
   for(const h of hazards){
-    if(h.type==="drone"){ const dir=Math.sign(player.x-h.x); h.vx += dir*120*dt; h.vx=Math.max(-70,Math.min(70,h.vx)); }
+    if(h.type==="drone" || h.type==="warship"){ const dir=Math.sign(player.x-h.x); h.vx += dir*120*dt; h.vx=Math.max(-70,Math.min(70,h.vx)); }
     else if(h.type==="torpedo"){
       if(h.home>0){
         h.home-=dt;
@@ -368,12 +379,27 @@ function update(dt){
       // home<=0: keep current velocity (go straight)
     }
     h.x+=h.vx*dt; h.y+=h.vy*dt;
-    // collision
+    // collision with player
     if(dist2(h,player) < (h.r+player.r)*(h.r+player.r)){
-      if(invT>0){ burst(h.x,h.y,"#ffe79a",10); h.life=0; }
-      else { h.life=0; hit(); burst(h.x,h.y,"#ff7a3a",12); }
+      if(invT>0){
+        if(h.type==="nuke"){ score+=500; burst(h.x,h.y,"#ffd23a",22); }
+        else burst(h.x,h.y,"#ffe79a",10);
+        h.life=0;
+      } else {
+        h.life=0; hit(h.dmg||1); burst(h.x,h.y, h.type==="nuke"?"#ffd23a":"#ff7a3a", h.type==="nuke"?20:12);
+      }
     }
-    if(h.y>VH+16 || h.x<-16 || h.x>VW+16) h.life=0;
+    if(h.y>VH+18 || h.x<-18 || h.x>VW+18) h.life=0;
+  }
+  // 魚雷が軍艦に当たると軍艦を破壊（+150）。魚雷も消滅。
+  for(const w of hazards){
+    if(w.type!=="warship" || !w.life) continue;
+    for(const t of hazards){
+      if(t.type!=="torpedo" || !t.life) continue;
+      if(dist2(w,t) < (w.r+t.r)*(w.r+t.r)){
+        w.life=0; t.life=0; score+=150; burst(w.x,w.y,"#ffd23a",18); break;
+      }
+    }
   }
   hazards=hazards.filter(h=>h.life);
 
@@ -392,10 +418,10 @@ function update(dt){
   parts=parts.filter(pa=>pa.life>0);
 }
 function dist2(a,b){ const dx=a.x-b.x,dy=a.y-b.y; return dx*dx+dy*dy; }
-function hit(){
+function hit(dmg){
   if(invT>0) return;
-  lives--; invT=1.2; hitFlash=.35;
-  if(lives<=0){ gameOver(); }
+  lives-=(dmg||1); invT=1.2; hitFlash=.35;
+  if(lives<=0){ lives=0; gameOver(); }
 }
 function collect(it){
   if(it.kind==="point"){

@@ -30,8 +30,8 @@ const GAMES = [
     playUrl: "games/hormuz/index.html",
     video: null,
     rules: {
-      ja: "あなたはタンカーの操舵手。画面をタッチした場所がバーチャルパッドになり、上下左右にドラッグした方向へタンカーが進みます（PCは矢印キー／WASD）。ミサイル・自爆ドローン・魚雷・岩をよけながら90秒間生きのびるのが目標。石油(+10)・LNG(+20)・黄金の像(+50&5秒無敵)・金のスクリュー(+30&加速)を拾うと高得点。機雷(-30)や黒いスクリュー(-10&減速)は拾わないように。減点要素やダメージに当たるとライフ(3つ)が1減り、0でゲームオーバーです。",
-      en: "You're the tanker's helmsman. Touch anywhere to set a virtual pad, then drag to steer (or use arrow keys / WASD on desktop). Survive 90 seconds while dodging missiles, kamikaze drones, torpedoes and rocks. Grab oil (+10), LNG (+20), the golden statue (+50 & 5s invincibility) and the golden propeller (+30 & speed boost). Avoid the sea mine (-30) and the black propeller (-10 & slowdown). Hazards and penalties each cost one of your 3 lives — lose them all and it's game over."
+      ja: "あなたはタンカーの操舵手。画面をタッチした場所がバーチャルパッドになり、上下左右にドラッグした方向へタンカーが進みます（PCは矢印キー／WASD）。ミサイル・自爆ドローン・魚雷・岩・軍艦・核ミサイルをよけながら90秒間生きのびるのが目標。石油(+10)・LNG(+20)・黄金の像(+50&5秒無敵)・金のスクリュー(+30&加速)を拾うと高得点。機雷(-30)や黒いスクリュー(-10&減速)は拾わないように。核ミサイルは接触で3ダメージだが、無敵中にぶつかると+500点。軍艦は魚雷をぶつけて倒すと+150点。ダメージや減点でライフ(3つ)が減り、0でゲームオーバーです。",
+      en: "You're the tanker's helmsman. Touch anywhere to set a virtual pad, then drag to steer (or use arrow keys / WASD on desktop). Survive 90 seconds while dodging missiles, kamikaze drones, torpedoes, rocks, warships and nuclear missiles. Grab oil (+10), LNG (+20), the golden statue (+50 & 5s invincibility) and the golden propeller (+30 & speed boost). Avoid the sea mine (-30) and the black propeller (-10 & slowdown). A nuclear missile deals 3 damage on contact — but ram one while invincible for +500. Lure a torpedo into a warship to destroy it for +150. Damage and penalties drain your 3 lives; lose them all and it's game over."
     },
     screenshots: [
       { img: "assets/img/shot-hormuz-1.svg", cap: { ja: "ミサイル・ドローン・魚雷・岩をよける", en: "Dodge missiles, drones, torpedoes and rocks" } },
