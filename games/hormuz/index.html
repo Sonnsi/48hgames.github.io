@@ -76,7 +76,7 @@ for(const n of ["missile","torpedo","drone","rock","nuke","warship"]){
   im.onload=(k=>()=>{ HZ_READY[k]=true; })(n);
   im.src=n+".png"; HZ_IMG[n]=im;
 }
-const HZ_H = { missile:30, torpedo:30, drone:23, rock:20, nuke:33, warship:46 }; // draw heights
+const HZ_H = { missile:30, torpedo:30, drone:23, rock:20, nuke:66, warship:46 }; // draw heights
 
 /* item artwork (uploaded) */
 const IT_IMG = {}; const IT_READY = {};
@@ -85,7 +85,7 @@ for(const n of ["gold","speed","sludge","decoy","oil","lng"]){
   im.onload=(k=>()=>{ IT_READY[k]=true; })(n);
   im.src=n+".png"; IT_IMG[n]=im;
 }
-const IT_H = { gold:24, speed:19, sludge:19, decoy:26, oil:19, lng:21 };
+const IT_H = { gold:24, speed:19, sludge:19, decoy:26, oil:29, lng:32 };
 
 /* title screen artwork (uploaded) */
 const titleImg = new Image(); let titleReady=false;
@@ -313,8 +313,8 @@ function spawnHazard(p){
   else if(type==="drone"){ h.vy=108; h.r=8; }
   else if(type==="torpedo"){ h.spd=86; h.vy=86; h.vx=0; h.r=7; h.home=6; }
   else if(type==="rock"){ h.vy=42; h.r=8; }
-  else if(type==="nuke"){ h.vy=190; h.r=7; h.dmg=3; }       // missileと同速・追尾なし、接触ダメージ3
-  else if(type==="warship"){ h.vy=86; h.r=12; h.y=-28; }    // 速度=魚雷, 追尾=自爆ドローン
+  else if(type==="nuke"){ h.vy=190; h.r=12; h.dmg=3; }     // missileと同速・追尾なし、接触ダメージ3、サイズ2倍
+  else if(type==="warship"){ h.vy=86; h.r=12; h.y=-28; }    // 速度=魚雷, 追尾なし(=ミサイルと同じ)
   hazards.push(h);
 }
 function spawnPoint(){
@@ -366,7 +366,7 @@ function update(dt){
 
   // hazards
   for(const h of hazards){
-    if(h.type==="drone" || h.type==="warship"){ const dir=Math.sign(player.x-h.x); h.vx += dir*120*dt; h.vx=Math.max(-70,Math.min(70,h.vx)); }
+    if(h.type==="drone"){ const dir=Math.sign(player.x-h.x); h.vx += dir*120*dt; h.vx=Math.max(-70,Math.min(70,h.vx)); }
     else if(h.type==="torpedo"){
       if(h.home>0){
         h.home-=dt;
