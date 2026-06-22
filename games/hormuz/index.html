@@ -97,6 +97,37 @@ function drawCover(img){
   ctx.drawImage(img, Math.round((VW-w)/2), Math.round((VH-h)/2), Math.round(w), Math.round(h));
 }
 
+/* result screen + rank badges (uploaded) */
+const resultImg = new Image(); let resultReady=false;
+resultImg.onload=()=>{ resultReady=true; };
+resultImg.src="result.png";
+const RANK_IMG = {}; const RANK_READY = {};
+for(const n of ["legend","epic","great","good","normal"]){
+  const im=new Image(); RANK_READY[n]=false;
+  im.onload=(k=>()=>{ RANK_READY[k]=true; })(n);
+  im.src="rank_"+n+".png"; RANK_IMG[n]=im;
+}
+// box rects as fractions of the result image (top-right: score box, then rank box)
+const BOX_SCORE = { x:0.770, y:0.030, w:0.215, h:0.162 };
+const BOX_RANK  = { x:0.770, y:0.218, w:0.215, h:0.158 };
+function rankFor(s){ return s>=2000?"legend": s>=1000?"epic": s>=600?"great": s>=300?"good":"normal"; }
+function drawFitText(s, box, color){
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  let size=Math.min(box.h*0.74, 34);
+  for(; size>=8; size--){
+    ctx.font="bold "+size+"px 'M PLUS Rounded 1c', monospace";
+    if(ctx.measureText(s).width <= box.w*0.86) break;
+  }
+  ctx.fillStyle=color||"#ffe36e";
+  ctx.fillText(s, box.x+box.w/2, box.y+box.h/2+1);
+  ctx.textBaseline="alphabetic";
+}
+function drawContain(img, box, f){
+  f=f||0.9; const s=Math.min(box.w*f/img.width, box.h*f/img.height);
+  const w=img.width*s, h=img.height*s;
+  ctx.drawImage(img, box.x+(box.w-w)/2, box.y+(box.h-h)/2, w, h);
+}
+
 /* ---------- palette helpers ---------- */
 function R(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
 function txt(s,x,y,c,size,align){ ctx.fillStyle=c; ctx.font="bold "+(size||9)+"px 'M PLUS Rounded 1c', monospace";
@@ -520,6 +551,29 @@ function drawEnd(winFlag){
   txt("← 左上から サイトに戻れます", VW/2, 350, "rgba(255,255,255,.7)", 8, "center");
 }
 
+function drawWin(){
+  // background gradient (fills area around the square result art)
+  const g=ctx.createLinearGradient(0,0,0,VH);
+  g.addColorStop(0,"#103a66"); g.addColorStop(1,"#06182e");
+  ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
+  if(resultReady){
+    const s=VW/resultImg.width, dw=VW, dh=resultImg.height*s, dx=0, dy=0;
+    ctx.drawImage(resultImg, dx,dy,dw,dh);
+    const b1={ x:dx+BOX_SCORE.x*dw, y:dy+BOX_SCORE.y*dh, w:BOX_SCORE.w*dw, h:BOX_SCORE.h*dh };
+    const b2={ x:dx+BOX_RANK.x*dw,  y:dy+BOX_RANK.y*dh,  w:BOX_RANK.w*dw,  h:BOX_RANK.h*dh };
+    drawFitText(String(score), b1, "#ffe36e");
+    const rk=rankFor(score);
+    if(RANK_READY[rk]) drawContain(RANK_IMG[rk], b2, 0.92);
+    // prompts below the art
+    const a=0.5+0.5*Math.sin(performance.now()/300);
+    ctx.globalAlpha=a; txt("▶ タップで もう一度", VW/2, dy+dh+50, "#fff", 13, "center"); ctx.globalAlpha=1;
+    txt("BEST  "+best + (score>=best?"   ★NEW":""), VW/2, dy+dh+74, "#ffe79a", 11, "center");
+    txt("← 左上から サイトに戻れます", VW/2, dy+dh+96, "rgba(255,255,255,.75)", 8, "center");
+  } else {
+    drawBackground(0); drawEntities(); drawPlayer(); drawHUD(); drawEnd(true);
+  }
+}
+
 /* ---------- main loop ---------- */
 let last=performance.now();
 function frame(now){
@@ -531,7 +585,7 @@ function frame(now){
   }
   if(state==="title") drawTitle();
   else if(state==="over"){ drawBackground(dt); drawEntities(); drawPlayer(); drawHUD(); drawEnd(false); }
-  else if(state==="win"){ drawBackground(dt); drawEntities(); drawPlayer(); drawHUD(); drawEnd(true); }
+  else if(state==="win"){ drawWin(); }
   requestAnimationFrame(frame);
 }
 reset(); state="title";
